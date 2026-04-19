@@ -1,5 +1,5 @@
 import {uploadoncloudinary} from "../services/cloudinary.js";
-const {usermodel , productmodel ,cartmodel}  = require("../models/Schema.js ")
+const {usermodel , productmodel ,cartmodel , ordermodel}  = require("../models/Schema.js ")
 const jwt = require("jsonwebtoken")
 const multer = require("multer")
 
@@ -108,7 +108,7 @@ async function addproduct(req , res){
     }
 }
 
-async function getallproducts(req, res) {
+async function getallproducts(req, res){
     try {
         const products = await postmodel.find({});
 
@@ -128,7 +128,7 @@ async function getallproducts(req, res) {
     }
 }
 
-async function cart(req , res) {
+async function cart(req , res){
     const {userid , product , quantity} = req.body
 
     try{
@@ -155,4 +155,32 @@ async function cart(req , res) {
         })
 }}
 }
+async function order(req , res){
+    const {user , product , totalprice , quantity , address , payment_Status , order_Status , productprice} = req.body
+    if(!user || !product  || !address){
+        return res.status(400).json({
+            message : "Cannot process the request"
+        })
+    }
+    try {
+        const order = await ordermodel.create({
+            order,
+            product,
+            totalprice,
+            address,
+            payment_Status,
+            order_Status,            
+        })
+        return res.status(200).json({
+            message : "order created Sucessfully"
+        })
+
+    } 
+    catch (error) {
+        return res.status(400).json({
+            message : "Order cannot pe created",
+            error  : error.message,
+        }
+        )}}
+
 export { registration, login, addproduct, getallproducts , cart };
