@@ -38,16 +38,21 @@ const productschema = new mongoose.Schema({
         default : 0,
     }
 })
-const cart = new mongoose.Schema({
+const cartSchema = new mongoose.Schema({
     userid : {
         type : mongoose.Schema.Types.ObjectId,
-        ref : User,
+        ref : "User",
     },
     product : {
         type  : mongoose.Schema.Types.ObjectId,
-        ref : product,
+        ref : "product",
+    },
+    quantity: { 
+        type : Number,
+        default : 1,
     }
 })
 const productmodel = mongoose.model("product" , productschema)
 const usermodel = mongoose.model("User" , userschema)
-module.exports = {usermodel  , productmodel}
+const cartmodel = mongoose.model("cart" , cartSchema)
+module.exports = {usermodel  , productmodel , cartmodel}

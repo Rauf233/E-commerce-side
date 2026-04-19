@@ -1,6 +1,5 @@
 import {uploadoncloudinary} from "../services/cloudinary.js";
-const usermodel = require("../models/Schema")
-const postmodel = require("../models/Schema")
+const {usermodel , productmodel ,cartmodel}  = require("../models/Schema.js ")
 const jwt = require("jsonwebtoken")
 const multer = require("multer")
 
@@ -129,4 +128,30 @@ async function getallproducts(req, res) {
     }
 }
 
-export { registration, login, addproduct, getallproducts };
+async function cart(req , res) {
+    const {userid , product} = req.body
+
+    try{
+        if(!user || product){
+            return res.status(400).json({
+                message : "cart is empty"
+            })
+        }
+        const newcart = await cartmodel.create({
+            product : product , 
+            userid : userid
+        })
+        return res.status(200).json({
+            Message : "Cart added Sucessfully",
+            newcart,
+        })
+    }
+    catch(error){
+    {
+        return res.status(400).json({
+            message : "issue in cart",
+            error : error.message,
+        })
+}}
+}
+export { registration, login, addproduct, getallproducts , cart };
