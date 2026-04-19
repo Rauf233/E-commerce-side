@@ -129,17 +129,18 @@ async function getallproducts(req, res) {
 }
 
 async function cart(req , res) {
-    const {userid , product} = req.body
+    const {userid , product , quantity} = req.body
 
     try{
-        if(!user || product){
+        if(!userid || !product){
             return res.status(400).json({
                 message : "cart is empty"
             })
         }
         const newcart = await cartmodel.create({
             product : product , 
-            userid : userid
+            userid : userid,
+            quantity : quantity,
         })
         return res.status(200).json({
             Message : "Cart added Sucessfully",
