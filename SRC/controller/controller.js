@@ -71,7 +71,7 @@ async function login(req,res){
 }
 
 async function addproduct(req , res){
-    const {Name , type , category , price , stock} = req.body
+    const {name , type , category , price , stock} = req.body
     try{
         if(!req.file){
             return res.status(400).json({
@@ -127,60 +127,65 @@ async function getallproducts(req, res){
         });
     }
 }
-
-async function cart(req , res){
-    const {userid , product , quantity} = req.body
-
-    try{
-        if(!userid || !product){
-            return res.status(400).json({
-                message : "cart is empty"
-            })
+async function cart(req, res) {
+    const { userid, product, quantity } = req.body;
+    try {
+        if (!userid || !product) {
+            return res.status(400).json({ message: "Cart details missing" });
         }
         const newcart = await cartmodel.create({
-            product : product , 
-            userid : userid,
-            quantity : quantity,
-        })
+            product: product,
+            userid: userid,
+            quantity: quantity || 1,
+        });
         return res.status(200).json({
-            Message : "Cart added Sucessfully",
+            Message: "Cart added Successfully",
             newcart,
-        })
-    }
-    catch(error){
-    {
+        });
+    } catch (error) {
         return res.status(400).json({
-            message : "issue in cart",
-            error : error.message,
-        })
-}}
+            message: "Issue in cart",
+            error: error.message,
+        });
+    }
 }
-async function order(req , res){
-    const {user , product , totalprice , quantity , address , payment_Status , order_Status , productprice} = req.body
-    if(!user || !product  || !address){
-        return res.status(400).json({
-            message : "Cannot process the request"
-        })
+
+async function order(req, res) {
+    const { user, product, quantity, address } = req.body;
+
+    if (!user || !product || !address || !quantity) {
+        return res.status(400).json({ message: "Missing required fields for order" });
     }
+
     try {
-        const order = await ordermodel.create({
-            order,
+        const productData = await productmodel.findById(product);
+        if (!productData) {
+            return res.status(404).json({ message: "Product not found" });
+        }
+
+        const totalprice = productData.price * quantity;
+
+        const newOrder = await ordermodel.create({
+            user,
             product,
+            quantity,
             totalprice,
             address,
-            payment_Status,
-            order_Status,            
-        })
+            payment_Status: "Pending",             
+            order_Status: "Processing" 
+        });
+
         return res.status(200).json({
-            message : "order created Sucessfully"
-        })
+            message: "Order created Successfully",
+            totalAmount: totalprice,
+            order: newOrder
+        });
 
-    } 
-    catch (error) {
+    } catch (error) {
         return res.status(400).json({
-            message : "Order cannot pe created",
-            error  : error.message,
-        }
-        )}}
-
+            message: "Order cannot be created",
+            error: error.message,
+        });
+    }
+}
 export { registration, login, addproduct, getallproducts , cart };
