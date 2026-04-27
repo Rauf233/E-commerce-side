@@ -1,191 +1,150 @@
-import {uploadoncloudinary} from "../services/cloudinary.js";
-const {usermodel , productmodel ,cartmodel , ordermodel}  = require("../models/Schema.js ")
-const jwt = require("jsonwebtoken")
-const multer = require("multer")
+const { usermodel, productmodel, cartmodel, ordermodel } = require("../models/Schema.js");
+const jwt = require("jsonwebtoken");
+const { uploadoncloudinary } = require("../services/cloudinary.js");
 
-async function registration(req , res){
-    const email = req.body.email
-    const password = req.body.password
-   try{
-    const extinguisher = await usermodel.findOne({email : email})    
-    if(extinguisher){
-        return res.status(400).json({
-            message : "user already exist"
-        })
-    }
-    const user = await usermodel.create({
-        email: email,
-        password : password
-    })
-    const token = jwt.sign({
-        id : user._id ,
-        email : email
-    }, process.env.JWTSECRET , {expiresIn : '1d'})
-    
-    res.cookie("token" , token)
-    
-    res.status(200).json({
-        message : "User is Created"
-    })
-}
-    catch(err){
-        res.status(400).json({
-        message  : "error in registration",
-        error : err.message
-    })
-}}
-
-async function login(req,res){
-    const {email , password } = req.body
-    
-    try{
-       const user = await usermodel.findOne({
-            email,
-            password
-        })
-        if(!user){
-            return res.status(400).json({
-                message : "user not found : :"
-            })
-        }
-        
-        const token = jwt.sign({
-            id : user._id , 
-            email : email , 
-        } , process.env.JWTSECRET , {expiresIn : '1d'})
-        
-        res.cookie("token" , token)
-        if(email || password){
-            return res.status(200).json({
-                message : "User logged in Sucessfully",
-            })
-        }
-    }
-    
-    catch(err){
-        return res.status(400).json({
-        message : "Invalid Credentials",
-        error : err.message,
-    })
- }   
-}
-
-async function addproduct(req , res){
-    const {name , type , category , price , stock} = req.body
-    try{
-        if(!req.file){
-            return res.status(400).json({
-                message: "File is not found"
-            })
-        }
-
-        const localfilepath = req.file.path
-
-        const cloudinaryresponse = await uploadoncloudinary(localfilepath)
-        
-        if(!cloudinaryresponse){
-            return res.status(500).json({
-                message : "Cloudinary Upload failed"
-            })
-        }
-        const newproduct = await postmodel.create({
-            name , 
-            type ,
-            category , 
-            price , 
-            stock , 
-            image : cloudinaryresponse.url,
-        })
-        return res.status(200).json({
-            message : "Product is created Sucessfully" ,
-            product : newproduct
-        })
-    } catch(err){
-        return res.status(400).json({
-            message : "Failed to create a post",
-            error : err.message
-        })
-    }
-}
-
-async function getallproducts(req, res){
+// 1. Registration
+async function registration(req, res) {
+    const { email, password } = req.body;
     try {
-        const products = await postmodel.find({});
-
-        if (!products || products.length === 0) {
-            return res.status(404).json({ message: "No products found" });
-        }
-
-        return res.status(200).json({
-            message: "Products fetched successfully",
-            products: products
-        });
+        const existingUser = await usermodel.findOne({ email });
+        if (existingUser) return res.status(400).json({ message: "User already exists" });
+        
+        const user = await usermodel.create({ email, password });
+        const token = jwt.sign({ id: user._id, email }, process.env.JWTSECRET, { expiresIn: '1d' });
+        
+        res.cookie("token", token);
+        return res.status(201).json({ message: "User Created Successfully" });
     } catch (err) {
-        return res.status(500).json({
-            message: "Error fetching products",
-            error: err.message
-        });
+        return res.status(500).json({ message: "Error", error: err.message });
     }
 }
+
+// 2. Login
+async function login(req, res) {
+    const { email, password } = req.body;
+    try {
+        const user = await usermodel.findOne({ email, password });
+        if (!user) return res.status(400).json({ message: "Invalid Credentials" });
+        
+        const token = jwt.sign({ id: user._id, email }, process.env.JWTSECRET, { expiresIn: '1d' });
+        res.cookie("token", token);
+        return res.status(200).json({ message: "Logged in" });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+}
+
+async function addproduct(req, res) {
+    const { name, type, category, price, stock } = req.body;
+    try {
+        if (!req.file) return res.status(400).json({ message: "Image missing" });
+
+        // Cloudinary upload logic
+        const cloudinaryResponse = await uploadoncloudinary(req.file.path);
+        
+        const newProduct = await productmodel.create({
+            name, type, category, price, stock,
+            image: cloudinaryResponse.url
+        });
+
+        return res.status(201).json({ message: "Product added", product: newProduct });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+}
+
+// 4. Get All Products
+async function getallproducts(req, res) {
+    try {
+        const products = await productmodel.find({});
+        return res.status(200).json({ products });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+}
+
+// 5. Cart Logic (Optimized for multiple items)
 async function cart(req, res) {
-    const { userid, product, quantity } = req.body;
+    const { product, quantity } = req.body;
+    const userId = req.user.id; 
     try {
-        if (!userid || !product) {
-            return res.status(400).json({ message: "Cart details missing" });
+        let userCart = await cartmodel.findOne({ user: userId });
+
+        if (userCart) {
+            const itemIndex = userCart.items.findIndex(p => p.product.toString() === product);
+            if (itemIndex > -1) {
+                userCart.items[itemIndex].quantity += (quantity || 1);
+            } else {
+                userCart.items.push({ product, quantity: quantity || 1 });
+            }
+            await userCart.save();
+        } else {
+            userCart = await cartmodel.create({
+                user: userId,
+                items: [{ product, quantity: quantity || 1 }]
+            });
         }
-        const newcart = await cartmodel.create({
-            product: product,
-            userid: userid,
-            quantity: quantity || 1,
-        });
-        return res.status(200).json({
-            Message: "Cart added Successfully",
-            newcart,
-        });
+        return res.status(200).json({ message: "Cart updated", userCart });
     } catch (error) {
-        return res.status(400).json({
-            message: "Issue in cart",
-            error: error.message,
-        });
+        return res.status(500).json({ error: error.message });
     }
 }
 
-async function order(req, res) {
-    const { user, product, quantity, address } = req.body;
-
-    if (!user || !product || !address || !quantity) {
-        return res.status(400).json({ message: "Missing required fields for order" });
-    }
-
+// 6. Create Order (COD)
+async function createOrder(req, res) {
     try {
-        const productData = await productmodel.findById(product);
-        if (!productData) {
-            return res.status(404).json({ message: "Product not found" });
+        const userId = req.user.id;
+        const { Address } = req.body;
+
+        const cart = await cartmodel.findOne({ user: userId }).populate('items.product');
+        if (!cart || !cart.items || cart.items.length === 0) {
+            return res.status(400).json({ message: "Cart khali hai" });
         }
 
-        const totalprice = productData.price * quantity;
+        let total = 0;
+        const orderItems = cart.items.map(item => {
+            total += item.product.price * item.quantity;
+            return {
+                product: item.product._id,
+                product_price: item.product.price,
+                quantity: item.quantity
+            };
+        });
 
         const newOrder = await ordermodel.create({
-            user,
-            product,
-            quantity,
-            totalprice,
-            address,
-            payment_Status: "Pending",             
-            order_Status: "Processing" 
+            user: userId,
+            items: orderItems,
+            Total_price: total,
+            Address: Address,
+            payment_Status: "pending",
+            order_Status: "processing"
         });
 
-        return res.status(200).json({
-            message: "Order created Successfully",
-            totalAmount: totalprice,
-            order: newOrder
-        });
-
-    } catch (error) {
-        return res.status(400).json({
-            message: "Order cannot be created",
-            error: error.message,
-        });
+        await cartmodel.findOneAndDelete({ user: userId });
+        return res.status(201).json({ message: "Order Placed Successfully", order: newOrder });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
     }
 }
-export { registration, login, addproduct, getallproducts , cart };
+
+// 7. Get User Order History
+async function getMyOrders(req, res) {
+    try {
+        const orders = await ordermodel.find({ user: req.user.id })
+            .populate('items.product')
+            .sort({ createdAt: -1 });
+        return res.status(200).json({ orders });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+}
+
+module.exports = { 
+    registration, 
+    login, 
+    addproduct, 
+    getallproducts, 
+    cart, 
+    createOrder, 
+    getMyOrders 
+};
