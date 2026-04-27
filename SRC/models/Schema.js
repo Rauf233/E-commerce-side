@@ -29,11 +29,11 @@ const productschema = new mongoose.Schema({
         required: true
     },
     price: { 
-        type: Number, // 'Number' capital N ke saath
+        type: Number, 
         required: true,
         min: 0
     },
-    image: { // lowercase 'image' controller se match karne ke liye
+    image: {
         type: String
     },
     stock: { 
@@ -43,9 +43,9 @@ const productschema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-// 3. Cart Schema (Array based - taaki multiple items handle hon)
+// 3. Cart Schema (Array based)
 const cartSchema = new mongoose.Schema({
-    user: { // Controller mein req.user.id se match karne ke liye
+    user: { 
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
         required: true
@@ -53,7 +53,7 @@ const cartSchema = new mongoose.Schema({
     items: [{
         product: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "Product", // Model name se match hona chahiye
+            ref: "Product", 
         },
         quantity: { 
             type: Number,
@@ -75,7 +75,7 @@ const orderschema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: "Product"
         },
-        product_price: { // Order ke waqt ki price lock karne ke liye
+        product_price: {
             type: Number,
         },
         quantity: { 
@@ -98,7 +98,7 @@ const orderschema = new mongoose.Schema({
     },
     order_Status: {
         type: String, 
-        enum: ['processing', 'delivered', 'cancelled', 'return'], // Spelling corrected: delivered
+        enum: ['processing', 'delivered', 'cancelled', 'return'], 
         default: "processing", 
     },
     orderdate: {
